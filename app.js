@@ -13,7 +13,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // 2. GEMINI API KEY
-const GEMINI_API_KEY = "AQ.Ab8RN6I0zkNys6g1sl5IZ7LnG0DZ_erhhsw2mjdZBZXWHcTW-w"; 
+const GEMINI_API_KEY = "AQ.Ab8RN6LTxUX14Qh_IZp21wHetIOCQBukUhwiN0n7cj7iRl_KJA";
 let currentRoom = "";
 let currentRole = "";
 
@@ -21,23 +21,25 @@ let currentRole = "";
 async function hostNewRoom() {
     currentRoom = Math.floor(1000 + Math.random() * 9000).toString(); 
     currentRole = "Prosecutor";
-    alert(`Naya Room Ban Gaya! Code hai: ${currentRoom}. Case generate ho raha hai... Kripya wait karein.`);
+    alert(`Naya Room Ban Gaya! Code hai: ${currentRoom}. Game start ho raha hai...`);
 
-    const prompt = `Create a short fictional crime case for a 2-player courtroom game. 
-    Return ONLY a raw JSON object with no markdown formatting. Structure:
-    {
-      "title": "Case Name",
-      "police_report": "Short 2 line FIR",
-      "prosecutor_evidences": ["Ev 1", "Ev 2"],
-      "defense_evidences": ["Ev 1", "Ev 2"]
-    }`;
+    // AI API ki jagah humne ek fix Offline Case daal diya hai
+    const dummyCaseDetails = {
+      title: "The Digital Heist",
+      police_report: "Raat 2 baje bank ka server hack hua aur $5M gayab ho gaye. Police ne server admin ko arrest kiya hai.",
+      prosecutor_evidences: ["Server Logs me admin ka IP", "Admin ke account me $50k transfer"],
+      defense_evidences: ["Admin us waqt public wifi par tha", "Admin ke laptop me Trojan Virus mila"]
+    };
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
+        // Seedha Firebase me case save karo aur room join karo (No API Call)
+        await db.ref('courtrooms/' + currentRoom + '/case_details').set(dummyCaseDetails);
+        joinRoom(currentRoom, currentRole);
+    } catch (error) {
+        console.error("Firebase Error:", error);
+        alert("Firebase me connect karne me error aayi!");
+    }
+}
         
         const data = await response.json();
         
