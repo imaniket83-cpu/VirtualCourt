@@ -9,21 +9,21 @@ const firebaseConfig = {
   appId: "1:265909339916:web:66401e1630f014a7b46b29"
 };
 
-firebase.initializeApp(firebaseConfig);
+// Initialize Firebase
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const db = firebase.database();
 
-// 2. GEMINI API KEY
-const GEMINI_API_KEY = "AQ.Ab8RN6LTxUX14Qh_IZp21wHetIOCQBukUhwiN0n7cj7iRl_KJA";
 let currentRoom = "";
 let currentRole = "";
 
-// 3. HOST ROOM & GENERATE CASE
+// 2. HOST ROOM (Offline Dummy Case)
 async function hostNewRoom() {
     currentRoom = Math.floor(1000 + Math.random() * 9000).toString(); 
     currentRole = "Prosecutor";
     alert(`Naya Room Ban Gaya! Code hai: ${currentRoom}. Game start ho raha hai...`);
 
-    // AI API ki jagah humne ek fix Offline Case daal diya hai
     const dummyCaseDetails = {
       title: "The Digital Heist",
       police_report: "Raat 2 baje bank ka server hack hua aur $5M gayab ho gaye. Police ne server admin ko arrest kiya hai.",
@@ -32,7 +32,6 @@ async function hostNewRoom() {
     };
 
     try {
-        // Seedha Firebase me case save karo aur room join karo (No API Call)
         await db.ref('courtrooms/' + currentRoom + '/case_details').set(dummyCaseDetails);
         joinRoom(currentRoom, currentRole);
     } catch (error) {
@@ -40,29 +39,8 @@ async function hostNewRoom() {
         alert("Firebase me connect karne me error aayi!");
     }
 }
-        
-        const data = await response.json();
-        
-        // Agar API fail hoti hai toh ye chalega
-        if (!data.candidates) {
-            console.error("API Error Response:", data);
-            alert("API se data nahi aaya! Console me error detail check karo.");
-            return;
-        }
 
-        let rawJson = data.candidates[0].content.parts[0].text;
-        rawJson = rawJson.replace(/```json|```/g, "").trim();
-        const caseDetails = JSON.parse(rawJson);
-
-        await db.ref('courtrooms/' + currentRoom + '/case_details').set(caseDetails);
-        joinRoom(currentRoom, currentRole);
-    } catch (error) {
-        console.error("FULL ERROR DETAILS:", error);
-        alert("Case banne me problem aayi! Browser console check karo (Right Click > Inspect > Console).");
-    }
-}
-
-// 4. JOIN ROOM LOGIC
+// 3. JOIN ROOM LOGIC
 function joinExistingRoom() {
     const code = prompt("Room Code daaliye (4-digits):");
     if (code && code.length === 4) {
@@ -77,7 +55,7 @@ function joinRoom(roomCode, role) {
     document.getElementById('game-screen').style.display = 'block';
     document.getElementById('room-display').innerText = `Room Code: ${roomCode} | Your Role: ${role}`;
 
-    // Case Details Download & Show
+    // Show Case Briefing
     db.ref('courtrooms/' + roomCode + '/case_details').once('value', (snapshot) => {
         const caseData = snapshot.val();
         if(caseData) {
@@ -92,7 +70,7 @@ function joinRoom(roomCode, role) {
     });
 }
 
-// 5. SEND MESSAGE LOGIC
+// 4. SEND MESSAGE LOGIC
 function sendMessage() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
@@ -115,35 +93,12 @@ function addMessageToUI(role, text) {
     msgDiv.scrollTop = msgDiv.scrollHeight;
 }
 
-// 6. AI JUDGE LOGIC
-async function callVerdict() {
-    alert("AI Judge faisla soch raha hai... kripya pratiksha karein!");
+// 5. JUDGE VERDICT (Offline Bypass)
+function callVerdict() {
+    alert("Judge faisla soch raha hai... kripya pratiksha karein!");
     
-    db.ref('courtrooms/' + currentRoom + '/arguments').once('value', async (snapshot) => {
-        let chatHistory = "Court Transcript:\n";
-        snapshot.forEach((child) => {
-            chatHistory += `${child.val().role}: ${child.val().text}\n`;
-        });
-
-        const prompt = `Act as an AI Judge. Read this chat history of a courtroom game. Decide who won based on logic. 
-        Return ONLY a JSON object: {"winner": "Prosecutor or Defense", "reason": "Short reason"}.
-        History: ${chatHistory}`;
-
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-            
-            const data = await response.json();
-            let rawJson = data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
-            const verdictData = JSON.parse(rawJson);
-
-            alert(`VERDICT: ${verdictData.winner} WINS!\n\nReason: ${verdictData.reason}`);
-        } catch(e) {
-            alert("Judge is currently unavailable. Console me error check karein!");
-            console.error(e);
-        }
-    });
+    // API bypass karke direct offline result taaki game test ho sake
+    setTimeout(() => {
+        alert("VERDICT: PROSECUTOR WINS!\n\nReason: Saboot saaf ishara karte hain ki admin ka account hack me istemal hua tha, aur public wifi ka excuse kafi nahi hai.");
+    }, 2000);
 }
