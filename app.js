@@ -2,7 +2,7 @@
 const firebaseConfig = {
   apiKey: "AIzaSyCz9JOBFR95P9t0cjeT-WYbd90qEBkqRHU",
   authDomain: "virtualcourt.firebaseapp.com",
-  databaseURL: "https://virtualcourt-default-rtdb.firebaseio.com",
+  databaseURL: https://virtualcourt-default-rtdb.firebaseio.com/
   projectId: "virtualcourt",
   storageBucket: "virtualcourt.firebasestorage.app",
   messagingSenderId: "265909339916",
