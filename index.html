@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Courtroom</title>
+    <!-- Firebase V8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body style="background-color: #121212; color: white; font-family: Arial, sans-serif; padding: 20px;">
+
+    <!-- Lobby Screen -->
+    <div id="start-screen">
+        <h2>Welcome to AI Courtroom</h2>
+        <button onclick="hostNewRoom()" style="padding: 12px; cursor: pointer; background: #4dabf7; border: none; font-weight: bold;">1. Host New Room (Prosecutor)</button>
+        <button onclick="joinExistingRoom()" style="padding: 12px; cursor: pointer; background: #ff6b6b; border: none; font-weight: bold; margin-left: 10px;">2. Join Room (Defense)</button>
+    </div>
+
+    <!-- Courtroom Chat Screen -->
+    <div id="game-screen" style="display: none;">
+        <h2>Court is in Session</h2>
+        <div id="messages" style="height: 300px; border: 1px solid #444; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #000;"></div>
+        
+        <input type="text" id="chat-input" placeholder="Type your argument..." style="width: 70%; padding: 10px;">
+        <button onclick="sendMessage()" style="padding: 10px; cursor: pointer;">Present Argument</button>
+        
+        <hr style="border-color: #333; margin: 20px 0;">
+        
+        <button onclick="callVerdict()" style="padding: 15px; width: 100%; background: #d32f2f; color: white; border: none; font-size: 16px; font-weight: bold; cursor: pointer;">End Trial & Ask AI Judge</button>
+    </div>
+
+    <!-- Link your JS file -->
+    <script src="app.js"></script>
+</body>
+</html>
