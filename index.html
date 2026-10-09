@@ -237,7 +237,11 @@
         }
         const db = firebase.database();
 
-        // --- 2. GAME LOGIC ---
+        // --- 2. GEMINI AI CONFIGURATION ---
+        // YAHAN APNI ASLI GEMINI API KEY DAALNA MAT BHOOLNA!
+        const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; 
+
+        // --- 3. GAME LOGIC ---
         const gameApp = {
             roomCode: '',
             myRole: 'Defense',
@@ -247,6 +251,8 @@
             maxArguments: 6,
             recognition: null,
             isListening: false,
+            caseData: null,
+            witnessOnStand: null,
             
             ui: {
                 lobby: document.getElementById('screen-lobby'),
@@ -294,7 +300,7 @@
                         dummyCaseDetails = { 
                             title: "The Silent Night Murder", 
                             police_report: "Victim found dead in a locked library. No murder weapon found. Suspect claims they were asleep.",
-                            witnesses: ["Maid (Found body)", "Doctor (Autopsy)", "Lead Detective"]
+                            witnesses: ["Maid", "Doctor", "Lead Detective"]
                         };
                     } else if (caseType === 'fraud') {
                         dummyCaseDetails = { 
@@ -310,7 +316,6 @@
                         };
                     }
                     
-                    // Added await to fix the sync issue
                     await db.ref('courtrooms/' + this.roomCode + '/case_details').set(dummyCaseDetails);
                     alert(`ROOM CREATED!\n\nYour Room Code is: ${this.roomCode}\nShare this 5-DIGIT code with your opponent.`);
                 } else {
@@ -334,17 +339,16 @@
             },
 
             initFirebase: function() {
-                // Use .on instead of .once for automatic sync
                 db.ref('courtrooms/' + this.roomCode + '/case_details').on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if(data) {
-                        document.getElementById('modal-casetitle').innerText = data.title;
-                        document.getElementById('modal-casereport').innerText = data.police_report;
+                    this.caseData = snapshot.val();
+                    if(this.caseData) {
+                        document.getElementById('modal-casetitle').innerText = this.caseData.title;
+                        document.getElementById('modal-casereport').innerText = this.caseData.police_report;
                         
                         const wList = document.getElementById('witness-list');
                         wList.innerHTML = '';
-                        if(data.witnesses) {
-                            data.witnesses.forEach(w => {
+                        if(this.caseData.witnesses) {
+                            this.caseData.witnesses.forEach(w => {
                                 wList.innerHTML += `<button onclick="gameApp.callWitness('${w}')" class="w-full bg-gray-800 hover:bg-gray-700 text-left px-4 py-3 mb-2 rounded text-sm font-bold text-white transition border-l-4 border-gray-600 hover:border-court-gold">${w}</button>`;
                             });
                         }
@@ -364,14 +368,16 @@
                 });
 
                 db.ref('courtrooms/' + this.roomCode + '/witnessOnStand').on('value', (snapshot) => {
-                    const w = snapshot.val();
-                    if(w) {
+                    this.witnessOnStand = snapshot.val();
+                    if(this.witnessOnStand) {
                         this.ui.centerDisplay.innerHTML = `
                             <div class="bg-gray-800 border border-court-gold px-2 py-1 rounded text-center shadow-lg animate-fade-in">
                                 <p class="text-[8px] text-gray-400 uppercase">On Stand</p>
-                                <p class="text-[10px] font-bold text-white">${w}</p>
+                                <p class="text-[10px] font-bold text-white">${this.witnessOnStand}</p>
                             </div>
                         `;
+                    } else {
+                        this.ui.centerDisplay.innerHTML = `<div class="w-10 h-10 bg-black border border-gray-600 rounded-full flex items-center justify-center shadow-lg font-serif italic font-black text-xl text-gray-400">VS</div>`;
                     }
                 });
 
@@ -382,6 +388,11 @@
                         this.appendSystemMsg(msg.text);
                     } else if (msg.role === 'Judge') {
                         this.appendJudgeMsg(msg.text);
+                    } else if (msg.role === 'Witness') {
+                        this.appendWitnessMsg(msg.name, msg.text);
+                        // Turn passes to the other player after witness speaks
+                        this.currentTurn = msg.targetTurn; 
+                        this.updateTurnVisuals();
                     } else {
                         this.argumentCount++;
                         this.updateProgress();
@@ -389,6 +400,7 @@
                         const senderName = msg.name || `Adv. ${msg.role}`;
                         this.appendDialog(msg.role, senderName, msg.text);
                         
+                        // Switch turn normal logic
                         this.currentTurn = msg.role === 'Defense' ? 'Prosecutor' : 'Defense';
                         this.updateTurnVisuals();
 
@@ -422,18 +434,41 @@
                 this.ui.progressBar.style.width = percentage + '%';
             },
 
-            callVerdict: function() {
+            // --- AI GEMINI INTEGRATION FUNCTIONS ---
+            askGeminiAI: async function(promptText) {
+                if(GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
+                    return "ERROR: Gemini API Key missing in code! Please add your key.";
+                }
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+                try {
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                    });
+                    const data = await response.json();
+                    if(data.error) return "AI Error: " + data.error.message;
+                    return data.candidates[0].content.parts[0].text;
+                } catch (err) {
+                    return "AI connection failed. Check your internet or API key.";
+                }
+            },
+
+            callVerdict: async function() {
                 this.currentTurn = 'Judge'; 
                 this.updateTurnVisuals();
-                this.ui.input.placeholder = "Awaiting Final Verdict...";
+                this.ui.input.placeholder = "MILORD AI-7 is typing verdict...";
                 this.ui.judgeGavel.classList.add('animate-gavel-strike');
                 setTimeout(() => this.ui.judgeGavel.classList.remove('animate-gavel-strike'), 600);
 
                 if(this.myRole === 'Prosecutor') { 
                     db.ref('courtrooms/' + this.roomCode + '/arguments').push({ role: 'System', text: "All arguments concluded. The AI Judge is reviewing the case...", timestamp: Date.now() });
-                    setTimeout(() => {
-                        db.ref('courtrooms/' + this.roomCode + '/arguments').push({ role: 'Judge', text: "Based on the presented arguments and witness cross-examinations, the Court finds in favor of the Prosecution. Case closed.", timestamp: Date.now() });
-                    }, 3000);
+                    
+                    const prompt = `You are a strict, dramatic Anime Judge. The case is: ${this.caseData.police_report}. The lawyers have finished arguing. Give a final verdict in 2-3 sentences. Say 'GUILTY' or 'NOT GUILTY' clearly at the start, and briefly explain why based on logic.`;
+                    const aiVerdict = await this.askGeminiAI(prompt);
+                    
+                    db.ref('courtrooms/' + this.roomCode + '/arguments').push({ role: 'Judge', text: aiVerdict, timestamp: Date.now() });
+                    db.ref('courtrooms/' + this.roomCode + '/witnessOnStand').remove();
                 }
             },
 
@@ -469,12 +504,32 @@
                 }
             },
 
-            sendArgument: function(e) {
+            sendArgument: async function(e) {
                 e.preventDefault();
                 if(!this.ui.input.value.trim() || this.currentTurn !== this.myRole) return;
                 const text = this.ui.input.value.trim();
                 this.ui.input.value = '';
+                
+                // Save Lawyer Message
                 db.ref('courtrooms/' + this.roomCode + '/arguments').push({ role: this.myRole, name: this.myName, text: text, timestamp: Date.now() });
+                
+                // If Witness is on stand, trigger AI Response automatically
+                if(this.witnessOnStand) {
+                    this.ui.input.placeholder = `${this.witnessOnStand} is thinking...`;
+                    
+                    const prompt = `Act as the witness '${this.witnessOnStand}' in a courtroom. The case report is: '${this.caseData.police_report}'. The lawyer just asked you: '${text}'. Reply in first person in English or Hinglish. Keep it dramatic, slightly defensive, and under 3 sentences. Do not break character.`;
+                    
+                    const aiReply = await this.askGeminiAI(prompt);
+                    const targetTurn = this.myRole === 'Defense' ? 'Prosecutor' : 'Defense'; 
+                    
+                    db.ref('courtrooms/' + this.roomCode + '/arguments').push({ 
+                        role: 'Witness', 
+                        name: this.witnessOnStand, 
+                        text: aiReply, 
+                        targetTurn: targetTurn,
+                        timestamp: Date.now() 
+                    });
+                }
             },
 
             appendDialog: function(role, playerName, text) {
@@ -496,6 +551,19 @@
                 this.ui.chat.scrollTop = this.ui.chat.scrollHeight;
             },
 
+            appendWitnessMsg: function(witnessName, text) {
+                const wrapper = document.createElement('div');
+                wrapper.className = "flex flex-col w-[90%] self-center animate-slide-down mt-2 mb-2";
+                wrapper.innerHTML = `
+                    <span class="text-[9px] font-bold uppercase text-gray-400 text-center mb-0.5 px-1">👤 WITNESS: ${witnessName}</span>
+                    <div class="bg-gray-800 border-2 border-gray-600 rounded-xl text-sm font-sans text-gray-200 p-3 shadow-lg leading-snug text-center italic">
+                        "${text}"
+                    </div>
+                `;
+                this.ui.chat.appendChild(wrapper);
+                this.ui.chat.scrollTop = this.ui.chat.scrollHeight;
+            },
+
             appendSystemMsg: function(text) {
                 const wrapper = document.createElement('div');
                 wrapper.className = "flex justify-center my-1 w-full animate-fade-in";
@@ -509,7 +577,7 @@
                 wrapper.className = "flex justify-center my-4 w-full animate-slide-down";
                 wrapper.innerHTML = `
                     <div class="bg-gray-200 border-2 border-court-gold p-3 rounded text-center max-w-[90%] shadow-[0_5px_15px_rgba(0,0,0,0.5)]">
-                        <p class="text-[10px] font-bold text-black uppercase tracking-widest mb-1"><i class="fa-solid fa-gavel text-court-gold"></i> OFFICIAL VERDICT</p>
+                        <p class="text-[10px] font-bold text-black uppercase tracking-widest mb-1"><i class="fa-solid fa-gavel text-court-gold"></i> MILORD AI-7 VERDICT</p>
                         <p class="text-sm text-gray-900 font-serif font-bold">${text}</p>
                     </div>
                 `;
