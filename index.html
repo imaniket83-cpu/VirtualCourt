@@ -243,11 +243,13 @@
                 objText: document.getElementById('objection-text')
             },
 
-            joinGame: function() {
+           joinGame: function() {
                 const codeInput = document.getElementById('room-code').value;
                 this.myRole = document.getElementById('player-role').value;
                 
-                // NEW: Logic to add "Adv." automatically
+                // 1. Screen se purani chat clear karein (agar tumne do baar button daba diya ho)
+                this.ui.chat.innerHTML = '';
+                
                 let rawName = document.getElementById('player-name').value.trim();
                 if(!rawName) rawName = "Lawyer"; 
                 this.myName = "Adv. " + rawName;
@@ -255,7 +257,12 @@
                 this.initSpeech();
                 
                 if(codeInput.length === 0) {
+                    // NAYA ROOM HOST HO RAHA HAI
                     this.roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+                    
+                    // 2. Firebase se is naye code ka purana data (agar koi tha) delete kar do
+                    db.ref('courtrooms/' + this.roomCode + '/arguments').remove();
+                    db.ref('courtrooms/' + this.roomCode + '/players').remove();
                     
                     const caseType = document.getElementById('case-type').value;
                     let dummyCaseDetails = {};
@@ -269,10 +276,10 @@
                     db.ref('courtrooms/' + this.roomCode + '/case_details').set(dummyCaseDetails);
                     alert(`ROOM CREATED!\n\nYour Room Code is: ${this.roomCode}\nShare this code with your opponent.`);
                 } else {
+                    // PURANA ROOM JOIN HO RAHA HAI
                     this.roomCode = codeInput;
                 }
                 
-                // Set Local Names Immediately
                 if(this.myRole === 'Defense') {
                     this.ui.labelD.innerText = this.myName + ' (You)';
                     this.ui.labelP.innerText = 'Prosecutor (Waiting...)';
@@ -281,7 +288,6 @@
                     this.ui.labelD.innerText = 'Defense (Waiting...)';
                 }
 
-                // Register name in Firebase so opponent can see it
                 db.ref('courtrooms/' + this.roomCode + '/players/' + this.myRole).set(this.myName);
 
                 this.ui.lobby.classList.remove('active');
