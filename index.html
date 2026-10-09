@@ -335,12 +335,25 @@
             },
 
             initFirebase: function() {
+                // 1. Fetch and Show Case Details directly in Chat (No alert popups)
                 db.ref('courtrooms/' + this.roomCode + '/case_details').once('value', (snapshot) => {
                     const caseData = snapshot.val();
-                    if(caseData) alert(`📜 CASE BRIEFING:\n\nTitle: ${caseData.title}\n\nReport: ${caseData.police_report}`);
+                    if(caseData) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = "flex justify-center my-4 animate-zoom-in-flash w-full";
+                        wrapper.innerHTML = `
+                            <div class="bg-blue-950/60 border border-cyber-cyan p-3 rounded-lg text-center max-w-[95%] shadow-[0_0_15px_rgba(0,229,255,0.3)]">
+                                <p class="text-[10px] font-bold text-cyber-cyan uppercase tracking-widest mb-1">📜 OFFICIAL CASE BRIEFING</p>
+                                <p class="text-xl font-comic tracking-wider text-white mb-1" style="-webkit-text-stroke: 0.5px #00e5ff;">${caseData.title}</p>
+                                <p class="text-sm text-gray-200 font-sans font-medium">${caseData.police_report}</p>
+                            </div>
+                        `;
+                        this.ui.chat.appendChild(wrapper);
+                        this.ui.chat.scrollTop = this.ui.chat.scrollHeight;
+                    }
                 });
 
-                // NEW: Listen for Opponent's Name
+                // 2. Listen for Opponent's Name
                 db.ref('courtrooms/' + this.roomCode + '/players').on('value', (snapshot) => {
                     const players = snapshot.val();
                     if(players) {
@@ -352,9 +365,9 @@
                     }
                 });
 
+                // 3. Listen for Chat Messages
                 db.ref('courtrooms/' + this.roomCode + '/arguments').on('child_added', (snapshot) => {
                     const msg = snapshot.val();
-                    // Pass name to dialog
                     const senderName = msg.name || `Adv. ${msg.role}`;
                     this.appendDialog(msg.role, senderName, msg.text, msg.isObjection);
                     this.currentTurn = msg.role === 'Defense' ? 'Prosecutor' : 'Defense';
